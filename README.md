@@ -1,2 +1,2 @@
-# qPacking-E
-qPacking embedding  exploration
+# qPacking2
+Multi-task esm2 fine-tuning
