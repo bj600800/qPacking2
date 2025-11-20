@@ -66,7 +66,7 @@ def run_split(input_pkl):
         with open(new_pkl, "wb") as f:
             pickle.dump(new_feature, f)
 
-def get_example_data(input_pkl):
+def get_example_split_data(input_pkl):
     dir_path = os.path.dirname(input_pkl)
     file_name = os.path.basename(input_pkl)
     existing_results = load_existing_results(input_pkl)
@@ -84,6 +84,16 @@ def get_example_data(input_pkl):
         with open(new_pkl, "wb") as f:
             pickle.dump(save_feature, f)
 
+def get_example_data(input_pkl):
+    existing_results = load_existing_results(input_pkl)
+    dir_path = os.path.dirname(input_pkl)
+    file_name = os.path.basename(input_pkl)
+    first_10 = dict(list(existing_results.items())[:10])
+
+    new_pkl = os.path.join(dir_path, f'test_{file_name}')
+    with open(new_pkl, "wb") as f:
+        pickle.dump(first_10, f)
+
 def run(pkl1, pkl2, output_pkl_path):
     output_pkl = get_pkl(pkl1, pkl2)
     with open(output_pkl_path, "wb") as f:
@@ -94,13 +104,14 @@ def run(pkl1, pkl2, output_pkl_path):
 if __name__ == '__main__':
     # pkl1 = r"/Users/douzhixin/Developer/qPacking/Data/feature/70_feature/70_results.pkl"
     # pkl2 = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/80/80_hydrophobic_feature.pkl"
-    # output_pkl_path = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/feature.pkl"
+    output_pkl_path = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/feature.pkl"
     # run(pkl1, pkl2, output_pkl_path)
     # print(load_existing_results(test_pkl))
     # get_example_data(output_pkl_path)
-    test_pkl_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/test"
-    test_pkl_file = [os.path.join(test_pkl_dir, file) for file in os.listdir(test_pkl_dir)]
-    for file in test_pkl_file:
-        print(file)
-        print(load_existing_results(file))
+    # test_pkl_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/test"
+    # test_pkl_file = [os.path.join(test_pkl_dir, file) for file in os.listdir(test_pkl_dir)]
+    # for file in test_pkl_file:
+    #     print(file)
+    #     print(load_existing_results(file))
+    get_example_data(output_pkl_path)
 
