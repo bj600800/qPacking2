@@ -100,25 +100,20 @@ def construct_feature(feature):
     return output_feature
 
 
-def get_example_data(input_pkl, output_pkl):
+def get_example_data_before(input_pkl, output_pkl):
     existing_results = load_dict_pkl(input_pkl)
     output = {}
     for protein_name, feature in tqdm(existing_results.items()):
         output[protein_name] = feature
         if len(output) == 10:
             break
+    with open(output_pkl, "wb") as f:
+        pickle.dump(output, f)
 
 
 if __name__ == '__main__':
-    # feature_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/feature.pkl"
-    # output_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/structure_feature.pkl"
-    # ret = load_dict_pkl(feature_pkl)
-    # output_feature = construct_feature(ret)
-    # with open(output_pkl, "wb") as f:
-    #     pickle.dump(output_feature, f)
-
-    feature_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/structure_feature.pkl"
-    ret = load_pkl(feature_pkl)
+    example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/examole_feature.pkl"
+    ret = load_pkl(example_pkl)
     print(ret)
     print(len(ret))
 
