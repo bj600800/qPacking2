@@ -327,4 +327,3 @@ def run_fitness_data(model_dir, feature_pkl, tokenized_cache_path, test_ratio, s
     val = DataLoader(tokenized_test, batch_size=batch_size, shuffle=False, collate_fn=collator)
 
     return train, val, tokenizer
-

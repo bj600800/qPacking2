@@ -121,7 +121,7 @@ def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="p
 # --------------------------
 if __name__ == "__main__":
     official_dir  = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"       # 官方 ESM2
-    finetuned_dir = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/multitask/checkpoint-4"      # 微调后的 MultiTaskModel checkpoint
+    finetuned_dir = "/Users/douzhixin/Developer/qPacking2/data/test/checkpoint-1"      # 微调后的 MultiTaskModel checkpoint
     fasta_file    = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/bgstrsq/bgstrsq.fasta"
     plot_dir      = "/Users/douzhixin/Developer/qPacking2/data/test/plot"
     os.makedirs(plot_dir, exist_ok=True)
