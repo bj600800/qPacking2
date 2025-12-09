@@ -13,7 +13,7 @@ import numpy as np
 from tqdm import tqdm
 import pickle
 from qpacking2.common import logger
-from qpacking2.common.statis_plot_feature import plot_feature
+
 
 logger = logger.setup_log(name=__name__)
 
@@ -112,10 +112,12 @@ def get_example_data_before(input_pkl, output_pkl):
 
 
 if __name__ == '__main__':
-    example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/examole_feature.pkl"
-    ret = load_pkl(example_pkl)
-    print(ret)
-    print(len(ret))
+    real_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/structure_feature.pkl"
+    example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl"
+    real_f = load_pkl(real_pkl)
+    exam_f = load_pkl(example_pkl)
+    print(real_f[0])
+    print(exam_f[0])
 
 
 

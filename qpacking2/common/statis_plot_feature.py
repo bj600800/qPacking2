@@ -15,16 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 from math import comb
-
 from qpacking2.common import logger
 
 logger = logger.setup_log(name=__name__)
-
-
-def load_pkl(pkl_file):
-    with open(pkl_file, 'rb') as f:
-        loaded_data = pickle.load(f)
-    return loaded_data
 
 def analyze_class(load_existing_results):
     total = 0

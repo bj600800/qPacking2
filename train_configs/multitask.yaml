@@ -1,0 +1,33 @@
+path:
+  # Input
+  model_dir: /Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D
+  feature_pkl: /Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl
+
+    # Output
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking2/data/checkpoints
+  logging_dir: /Users/douzhixin/Developer/qPacking2/data/test/logs
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking2/data/test/feature/cache
+
+lora:
+  rank: 8
+  alpha: 8
+  dropout: 0.05
+  add_lora_layers: 1
+
+training_args:
+  task: multitask
+  seed: 3407
+  lr: 2.0e-5
+  num_epochs: 1
+  batch_size: 8
+  test_ratio: 0.1
+  eval_strategy: steps
+  logging_strategy: steps
+  eval_steps: 1
+  save_steps: 1
+  save_strategy: steps
+  save_total_limit: 10000
+  logging_steps: 1
+  reporter: mlflow
+  metric_for_best_model: eval_combined_score
+  greater_is_better: true
