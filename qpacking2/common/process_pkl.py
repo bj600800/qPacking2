@@ -7,9 +7,6 @@
 # Description: Multitask training esm2
 # ------------------------------------------------------------------------------
 """
-import os
-import math
-import numpy as np
 from tqdm import tqdm
 import pickle
 from qpacking2.common import logger
@@ -110,14 +107,37 @@ def get_example_data_before(input_pkl, output_pkl):
     with open(output_pkl, "wb") as f:
         pickle.dump(output, f)
 
+def downsample(keep_protein_names, feature, new_pkl):
+    new_feature = []
+    for protein in tqdm(feature):
+        protein_name = protein['protein_name']
+        feature_name = protein['feature_name']
+        if feature_name == 'position':
+            if protein_name in keep_protein_names:
+                new_feature.append(protein)
+        else:
+            new_feature.append(protein)
+
+    with open(new_pkl, 'wb') as f:
+        pickle.dump(new_feature, f)
+
+
+
 
 if __name__ == '__main__':
+    from qpacking2.common.statis_plot_feature import sample_seq_level_soft, format_position_binary
+
     real_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/structure_feature.pkl"
-    example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl"
-    real_f = load_pkl(real_pkl)
-    exam_f = load_pkl(example_pkl)
-    print(real_f[0])
-    print(exam_f[0])
+    # example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl"
+    new_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/feature_downsample_position.pkl"
+    feature = load_pkl(real_pkl)
+    result = format_position_binary(real_pkl)
+    keep_protein_names = sample_seq_level_soft(result)
+    downsample(keep_protein_names, feature, new_pkl)
+
+
+
+
 
 
 

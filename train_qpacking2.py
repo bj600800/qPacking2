@@ -36,6 +36,7 @@ def multitask(config):
         "lora_rank": config.lora.rank,
         "lora_alpha": config.lora.alpha,
         "lora_dropout": config.lora.dropout,
+        "task_weights": config.training_args.task_weights,
         "eval_steps": config.training_args.eval_steps,
         "eval_strategy": config.training_args.eval_strategy,
         "save_total_limit": config.training_args.save_total_limit,
@@ -77,7 +78,7 @@ def create_mlflow_experiment(config, task):
         f"{pkl_name}_"
         f"lora_layers:{config.lora.add_lora_layers}_"
         f"bs:{config.training_args.batch_size}_"
-        f"epoch:{config.training_args.num_epochs}"
+        f"task_weights:{config.training_args.task_weights}"
     )
 
     return {

@@ -18,6 +18,7 @@ training_args:
   task: multitask
   seed: 3407
   lr: 2.0e-5
+  task_weights: {"position": 1.0, "rsa": 1.0, "degree": 1.0, "order": 1.0, "bsa": 1.0}
   num_epochs: 1
   batch_size: 8
   test_ratio: 0.1

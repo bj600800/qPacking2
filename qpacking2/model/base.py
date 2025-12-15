@@ -20,15 +20,12 @@ def load_lora_model(model_dir, add_lora_layers, lora_rank, lora_alpha, lora_drop
     )
     model.enable_input_require_grads()  # Enable gradients for input embeddings
 
-    # 如果不添加 LoRA，直接返回原模型
     if add_lora_layers <= 0:
-        # 可选：冻结全部参数
         for p in model.parameters():
             p.requires_grad = False
         print("LoRA not added. Model returned with all parameters frozen.")
         return model
 
-    # 添加 LoRA
     num_layers = len(model.encoder.layer)
     target_modules = []
     for i in range(max(0, num_layers - add_lora_layers), num_layers):
@@ -61,7 +58,6 @@ class BaseESMLoraModel(nn.Module):
         self.hidden_size = self.backbone.config.hidden_size
         self.dropout = nn.Dropout(dropout_prob)
 
-        # 🔹 打印 LoRA 层信息
         if add_lora_layers > 0:
             print("LoRA Layers:")
             lora_count = 0

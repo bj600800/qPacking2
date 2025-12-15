@@ -38,6 +38,7 @@ class TrainingArgsConfig:
     num_epochs: int
     test_ratio: float
     batch_size: int
+    task_weights: dict
     eval_strategy: str
     save_strategy: str
     save_steps: str

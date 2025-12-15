@@ -24,9 +24,7 @@ from qpacking2.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-# =============================================================================
-# Utility
-# =============================================================================
+
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -35,9 +33,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-# =============================================================================
-# Base Encoder
-# =============================================================================
+
 class BaseEncoder:
     def __init__(self, tokenizer, cache_dir):
         self.tokenizer = tokenizer
@@ -65,9 +61,7 @@ class BaseEncoder:
         self.sigma = d["sigma"]
         logger.info(f"Loaded mu={self.mu} sigma={self.sigma} ← {path}")
 
-# =============================================================================
-# Multi-task Dataset
-# =============================================================================
+
 class MultiTaskDataset(BaseEncoder):
     TASKS = ["position", "rsa", "bsa", "degree", "order"]
     TASK_TYPES = {
@@ -83,7 +77,6 @@ class MultiTaskDataset(BaseEncoder):
         self.feature_pkl = feature_pkl
 
     def format_raw(self, pkl_data):
-        """把 list-of-dict 数据整理成统一格式"""
         formatted = []
         for feature_dict in tqdm(pkl_data):
             seq = feature_dict["sequence"]
@@ -106,12 +99,11 @@ class MultiTaskDataset(BaseEncoder):
 
     def encode_item(self, x):
         tok = self.tokenizer(x["sequence"], padding=False, return_attention_mask=True)
-        tok["labels"] = [-100] + x["labels"] + [-100]  # 左右加 pad token
+        tok["labels"] = [-100] + x["labels"] + [-100]
         tok["task_id"] = x["task_id"]
         return tok
 
     def tokenize_dataset(self, dataset, cache_dir):
-        """tokenization 只做一次，存在缓存就直接加载"""
         if os.path.exists(cache_dir):
             logger.info(f"Loading cached dataset from: {cache_dir}")
             return load_from_disk(cache_dir)
@@ -126,7 +118,6 @@ class MultiTaskDataset(BaseEncoder):
         tokenized_train_cache = os.path.join(self.cache_dir, "train_tokenized")
         tokenized_test_cache = os.path.join(self.cache_dir, "test_tokenized")
 
-        # 如果已经有缓存，直接加载
         if os.path.exists(tokenized_train_cache) and os.path.exists(tokenized_test_cache):
             logger.info("Loading fully cached tokenized dataset...")
             tokenized_train = load_from_disk(tokenized_train_cache)
@@ -134,22 +125,18 @@ class MultiTaskDataset(BaseEncoder):
             total = len(tokenized_train) + len(tokenized_test)
             return tokenized_train, tokenized_test, total
 
-        # 1. 加载原始数据
         raw = load_pkl(self.feature_pkl)
         formatted = self.format_raw(raw)
         dataset = Dataset.from_list(formatted)
         total = len(dataset)
 
-        # 2. 切分训练/测试
         split = dataset.train_test_split(test_size=test_ratio, seed=seed)
         train_dataset = split["train"]
         test_dataset = split["test"]
 
-        # 3. 对回归任务做 μ/σ 标准化
         for task_name in tqdm(self.TASKS, desc='Normalizing regression tasks'):
             if self.TASK_TYPES[task_name] == "regression":
                 mu_sigma_path = os.path.join(self.cache_dir, f"{task_name}_mu_sigma.json")
-                # 先尝试加载缓存 μ/σ
                 if os.path.exists(mu_sigma_path):
                     self.load_mu_sigma(mu_sigma_path)
                 else:
@@ -159,7 +146,6 @@ class MultiTaskDataset(BaseEncoder):
                         self.mu, self.sigma = self.compute_zscore(vals)
                         self.dump_mu_sigma(mu_sigma_path)
 
-                # 应用标准化
                 def normalize(sample):
                     if sample["task_name"] == task_name:
                         sample["labels"] = [(v - self.mu) / self.sigma if v != -100 else -100
@@ -169,16 +155,12 @@ class MultiTaskDataset(BaseEncoder):
                 train_dataset = train_dataset.map(normalize)
                 test_dataset = test_dataset.map(normalize)
 
-        # 4. tokenized dataset
         tokenized_train = self.tokenize_dataset(train_dataset, tokenized_train_cache)
         tokenized_test = self.tokenize_dataset(test_dataset, tokenized_test_cache)
 
         return tokenized_train, tokenized_test, total
 
 
-# =============================================================================
-# Collator
-# =============================================================================
 class MultiTaskCollator(DataCollatorWithPadding):
     def __call__(self, features):
         max_len = max(len(f["labels"]) for f in features)
@@ -194,9 +176,6 @@ class MultiTaskCollator(DataCollatorWithPadding):
         return super().__call__(new_features)
 
 
-# =============================================================================
-# Loader
-# =============================================================================
 def run_multi_task_encoder(feature_pkl, model_dir, tokenized_cache_path,
                            test_ratio, batch_size, seed):
     set_seed(seed)
@@ -212,9 +191,6 @@ def run_multi_task_encoder(feature_pkl, model_dir, tokenized_cache_path,
     logger.info(f"[MultiTask] total={total}, train={len(tokenized_train)}, val={len(tokenized_test)}")
     return train_loader, val_loader, tokenizer
 
-# =============================================================================
-# Fitness Dataset (wt–mt pair)
-# =============================================================================
 
 class FitnessData(BaseEncoder):
     def __init__(self, pkl_file, tokenizer, cache_dir):
@@ -227,7 +203,6 @@ class FitnessData(BaseEncoder):
         with open(path, "rb") as f:
             return pickle.load(f)
 
-    # 训练集计算 μ/σ → 应用于训练/测试集
     def zscore_split(self, train_items, test_items):
         vals = [x["fitness"] for x in train_items]
         self.mu, self.sigma = self.compute_zscore(vals)
@@ -272,18 +247,15 @@ class FitnessData(BaseEncoder):
         return tokenized
 
     def get(self, test_ratio, seed):
-        # 1️⃣ 划分训练/测试
         raw = self.read_pkl(self.pkl_file)
         split_idx = int(len(raw) * (1 - test_ratio))
         random.Random(seed).shuffle(raw)
         train_items, test_items = raw[:split_idx], raw[split_idx:]
-        # 2️⃣ 训练集计算 μ/σ → 归一化
         train_items, test_items = self.zscore_split(train_items, test_items)
 
         dataset_train = Dataset.from_list(train_items)
         dataset_test = Dataset.from_list(test_items)
 
-        # 3️⃣ Tokenize
         tokenized_train = self.tokenize(dataset_train, cache_name="train")
         tokenized_test = self.tokenize(dataset_test, cache_name="test")
 

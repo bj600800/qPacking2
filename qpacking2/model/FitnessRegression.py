@@ -47,7 +47,6 @@ class FitnessRegressionModel(nn.Module):
 
         params.unfreeze_backbone(self.model, unfreeze_last_n, model_prefix)
 
-        # Train header
         for name, param in self.regressor.named_parameters():
             param.requires_grad = True
 

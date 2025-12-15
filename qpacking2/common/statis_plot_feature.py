@@ -7,94 +7,132 @@
 # Description: Multitask training esm2
 # ------------------------------------------------------------------------------
 """
-from scipy.stats import skew, kurtosis
-import os
-import pickle
 from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
-from collections import Counter
-from math import comb
+from qpacking2.common.process_pkl import load_pkl
 from qpacking2.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-def analyze_class(load_existing_results):
-    total = 0
-    hydro = 0
-    for protein_id, feature in tqdm(load_existing_results.items()):
-        # binary stats
-        seq_length = feature['length']
-        class_feature = feature['class']
-        hydrophobic_residue_num = len(class_feature)
-        total += seq_length
-        hydro += hydrophobic_residue_num
+def format_position_binary(feature_pkl):
+    result = {
+        "200-250": [],
+        "250-300": [],
+        "300-350": [],
+        "350-400": [],
+    }
 
-    positive = hydro / total
-    negative = 1 - positive
+    data = load_pkl(feature_pkl)
 
-    print(f"Hydrophobic: {positive}")
-    print(f"Non-hydrophobic: {negative}")
+    for feature in tqdm(data, desc="Processing features"):
+        feature_name = feature['feature_name']
+        ret = {}
+        if feature_name == 'position':
+            protein_name = feature['protein_name']
+            length = feature['length']
+            label = feature['label']
+            pos_count = label.count(1)
+            neg_count = label.count(0)
+            ret['protein_name'] = protein_name
+            ret['length'] = length
+            ret['pos_count'] = pos_count
+            ret['neg_count'] = neg_count
+            ret['pos_ratio'] = pos_count / length
 
-def analyze_rsa(load_existing_results):
-    total = 0
-    interior = 0
+            if 200 <= length < 250:
+                result["200-250"].append(ret)
+            elif 250 <= length < 300:
+                result["250-300"].append(ret)
+            elif 300 <= length < 350:
+                result["300-350"].append(ret)
+            elif 350 <= length <= 400:
+                result["350-400"].append(ret)
+    return result
 
-    for protein_id, feature in tqdm(load_existing_results.items()):
-        # binary stats
-        seq_length = feature['length']
-        rsa_feature = feature['rsa']
-        interior_len = len([i for i in rsa_feature.values() if i < 0.05])
-        total += seq_length
-        interior += interior_len
+def sample_seq_level_soft(
+    result,
+    ratio_dict=None,
+    extra_ratio=0.05,
+    seed=3407
+):
+    """
+    two stage downsample：
+    1) keep bin front ratio_dict[bin] high pos-ratio sequence
+    2) fill with remaining sequences
+    """
 
-    interior = interior / total
-    surface = 1 - interior
-    print(f"Interior: {interior}")
-    print(f"Surface: {surface}")
+    if ratio_dict is None:
+        ratio_dict = {
+            '200-250': 0.3,
+            '250-300': 0.3,
+            '300-350': 0.1,
+            '350-400': 0.1
+        }
+
+    np.random.seed(seed)
+
+    keep_protein = {}
+    bin_result = {}
+    keep_protein_names = []
+    for bin_name, proteins in result.items():
+
+        # sort
+        proteins_sorted = sorted(
+            proteins,
+            key=lambda x: x['pos_ratio'],
+            reverse=True
+        )
+
+        # keep the front % data
+        n_keep = int(len(proteins_sorted) * ratio_dict[bin_name])
+        stage1 = proteins_sorted[:n_keep]
+
+        # fill with the remaining dataset
+        remain = proteins_sorted[n_keep:]
+        n_extra = int(len(remain) * extra_ratio)
+        if n_extra > 0:
+            stage2 = list(np.random.choice(remain, n_extra, replace=False))
+        else:
+            stage2 = []
+
+        final = stage1 + stage2
+        keep_protein[bin_name] = final
+
+        keep_protein_names.extend([p['protein_name'] for p in final])
+
+        bin_pos = sum(p['pos_count'] for p in final)
+        bin_neg = sum(p['neg_count'] for p in final)
+        total = bin_pos + bin_neg
+        bin_ratio = bin_pos / total if total > 0 else None
+
+        bin_result[bin_name] = {
+            'count': {'pos_count': bin_pos, 'neg_count': bin_neg},
+            'pos_ratio': bin_ratio
+        }
 
 
-def zscore_list(data):
-    mean = sum(data) / len(data)
-    std = (sum((x - mean)**2 for x in data) / len(data))**0.5
-    datalist = [(x - mean) / std for x in data]
-    return datalist
+    all_pos = sum(b['count']['pos_count'] for b in bin_result.values())
+    all_neg = sum(b['count']['neg_count'] for b in bin_result.values())
+    total_ratio = all_pos / (all_pos + all_neg)
 
-def plot_feature(load_existing_results, feature_name, dtype=None, bins=11):
-    if dtype == 'single':
-        data = [i for protein_id, feature in load_existing_results.items()
-                for i in feature.values()]
-    else:
-        data = [i for protein_id, feature in load_existing_results.items()
-                for i in feature[feature_name].values()]
+    print("complete downsample")
+    print('protein count:', len(keep_protein_names))
+    print(bin_result)
+    print("total positive:", all_pos)
+    print("total negative:", all_neg)
+    print("pos_ratio:", total_ratio)
+    print("neg/pos:", all_neg / all_pos)
 
-    counts_density, bin_edges = np.histogram(data, bins=bins, density=True)
-    bin_widths = np.diff(bin_edges)
 
-    print(f"{feature_name} feature")
 
-    bin_centers = bin_edges[:-1] + bin_widths / 2
-    print("bin_centers:")
-    for i in bin_centers:
-        print(i)
-    print()
+    return keep_protein_names
 
-    frequencies = counts_density * bin_widths
-    print("frequencies:")
-    for i in frequencies:
-        print(i)
 
-    # 绘图
-    plt.figure(figsize=(6, 4))
-    plt.bar(bin_centers, frequencies, width=bin_widths,
-            edgecolor="black", color="#FFB050",
-            alpha=0.7, linewidth=1)
+if __name__ == '__main__':
+    pkl_file = r"/Users/douzhixin/Developer/qPacking2/data/feature/structure_feature.pkl"
+    # pkl_file = r"/Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl"
+    result = format_position_binary(pkl_file)
+    sample_seq_level_soft(result)
 
-    plt.xlabel(feature_name)
-    plt.ylabel("Frequency")
-    plt.title(f"Frequency distribution of {feature_name}")
-    plt.tight_layout()
-    figure_path = rf"/Users/douzhixin/Developer/qPacking-esm/figure/python/feature/{feature_name}.png"
-    plt.savefig(figure_path, dpi=600, bbox_inches='tight')
-    plt.show()
+
 

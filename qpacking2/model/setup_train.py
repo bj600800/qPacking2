@@ -18,7 +18,7 @@ from qpacking2.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-def train_multitask_model(feature_pkl, model_dir, tokenized_cache_path, test_ratio,
+def train_multitask_model(feature_pkl, model_dir, tokenized_cache_path, test_ratio, task_weights,
                           add_lora_layers, lora_rank, lora_alpha, lora_dropout, logging_strategy,
                           batch_size, seed, checkpoints_dir, lr, num_epochs,logging_steps,
                           eval_strategy, logging_dir, eval_steps, save_strategy, save_steps,
@@ -29,7 +29,8 @@ def train_multitask_model(feature_pkl, model_dir, tokenized_cache_path, test_rat
                            add_lora_layers=add_lora_layers,
                            lora_rank=lora_rank,
                            lora_alpha=lora_alpha,
-                           lora_dropout=lora_dropout)
+                           lora_dropout=lora_dropout,
+                           task_weights=task_weights)
 
     dataset_args = {
         "feature_pkl": feature_pkl,
@@ -79,20 +80,16 @@ def train_multitask_model(feature_pkl, model_dir, tokenized_cache_path, test_rat
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    # 1️⃣ 保存 backbone
     model.backbone.save_pretrained(best_model_path)
 
-    # 2️⃣ 保存 tokenizer
     tokenizer.save_pretrained(best_model_path)
 
-    # 3️⃣ 保存每个 task head
     head_dir = os.path.join(best_model_path, "task_heads")
     os.makedirs(head_dir, exist_ok=True)
     for task_name, head in model.heads.items():
         head_path = os.path.join(head_dir, f"{task_name}_head.pt")
         torch.save(head.state_dict(), head_path)
 
-    # 4️⃣ 保存 task embedding
     task_emb_path = os.path.join(best_model_path, "task_emb.pt")
     torch.save(model.task_emb.state_dict(), task_emb_path)
 

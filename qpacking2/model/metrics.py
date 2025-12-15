@@ -58,7 +58,7 @@ def compute_metrics_hf(eval_pred):
         labels_masked = labels_task[mask]
 
         if TASK_TYPES[task] == "classification":
-            # [N, L, C] or [N, C] → argmax
+            # [N, L, C] or [N, C]: argmax
             if preds_masked.ndim == 3:
                 preds_masked = np.argmax(preds_masked.reshape(-1, preds_masked.shape[-1]), axis=-1)
                 labels_masked = labels_masked.reshape(-1)
@@ -80,7 +80,6 @@ def compute_metrics_hf(eval_pred):
             metrics[f"eval_{task}_spearman"] = float(s)
             reg_spearman.append(s)
 
-    # Macro metrics
     metrics["eval_cls_f1_macro"] = float(np.mean(cls_f1_all)) if cls_f1_all else 0.0
     metrics["eval_reg_spearman"] = float(np.mean(reg_spearman)) if reg_spearman else 0.0
     metrics["eval_combined_score"] = metrics["eval_cls_f1_macro"] + metrics["eval_reg_spearman"]

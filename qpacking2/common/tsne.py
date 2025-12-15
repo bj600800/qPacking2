@@ -8,7 +8,6 @@
 # ------------------------------------------------------------------------------
 """
 import torch
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.manifold import TSNE
@@ -16,13 +15,9 @@ import os
 from transformers import EsmModel, EsmTokenizer
 from qpacking2.model.models import MultiTaskModel
 from qpacking2.model.base import load_lora_model
-from qpacking2.model.heads import ClassificationHead, RegressionHead
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# --------------------------
-# Load MultiTaskModel from checkpoint
-# --------------------------
 def load_multitask_model(checkpoint_dir):
 
     model = MultiTaskModel(
@@ -46,9 +41,7 @@ def load_multitask_model(checkpoint_dir):
 
     return model.to(device).eval()
 
-# --------------------------
-# Extract embeddings + predictions
-# --------------------------
+
 def extract_task_embeddings(model, tokenizer, seqs, max_per_seq=400):
     task_embs = {t: [] for t in model.TASKS}
     task_preds = {t: [] for t in model.TASKS}
@@ -58,7 +51,7 @@ def extract_task_embeddings(model, tokenizer, seqs, max_per_seq=400):
         inp = {k: v.to(device) for k, v in inp.items()}
 
         with torch.no_grad():
-            hidden = model.encode(**inp)  # [B, L, H]
+            hidden = model.encode(**inp)
             B, L, H = hidden.size()
             for t_idx, task in enumerate(model.TASKS):
                 head = model.heads[task]
@@ -82,16 +75,12 @@ def extract_task_embeddings(model, tokenizer, seqs, max_per_seq=400):
         task_preds[task] = torch.cat(task_preds[task], dim=0).numpy()
     return task_embs, task_preds
 
-# --------------------------
-# t-SNE
-# --------------------------
+
 def run_tsne(X, perplex=60):
     tsne = TSNE(n_components=2, perplexity=perplex, learning_rate="auto", init="pca", random_state=200)
     return tsne.fit_transform(X)
 
-# --------------------------
-# Plot
-# --------------------------
+
 def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="pred", is_regression=False):
     plt.figure(figsize=(7, 7))
     if is_regression and values is not None:
@@ -116,9 +105,6 @@ def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="p
     plt.savefig(plot_path, dpi=600)
     plt.show()
 
-# --------------------------
-# Main
-# --------------------------
 if __name__ == "__main__":
     official_dir  = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"       # 官方 ESM2
     finetuned_dir = "/Users/douzhixin/Developer/qPacking2/data/test/checkpoint-1"      # 微调后的 MultiTaskModel checkpoint
@@ -129,9 +115,7 @@ if __name__ == "__main__":
     seqs = [l.strip() for l in open(fasta_file) if not l.startswith(">")]
     tokenizer = EsmTokenizer.from_pretrained(official_dir)
 
-    # -------------------
-    # Load models
-    # -------------------
+
     print("Loading official ESM2...")
     model_official = EsmModel.from_pretrained(official_dir, add_pooling_layer=False).to(device).eval()
 
@@ -142,19 +126,18 @@ if __name__ == "__main__":
         print(f"Extracting embeddings for {model_name}...")
 
         if model_name == "official":
-            # 官方 backbone + 微调 heads
             class OfficialWithHeads(torch.nn.Module):
                 def __init__(self, backbone, finetuned_model):
                     super().__init__()
                     self.backbone = backbone
                     self.TASKS = finetuned_model.TASKS
                     self.TASK_TYPES = finetuned_model.TASK_TYPES
-                    self.heads = finetuned_model.heads  # 直接复用微调 head
+                    self.heads = finetuned_model.heads
 
                 def encode(self, input_ids, attention_mask=None):
                     with torch.no_grad():
                         hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
-                        hidden = hidden[:, 1:-1, :]  # 去掉 CLS/EOS
+                        hidden = hidden[:, 1:-1, :]  # remove cls eos
                     return hidden
 
 
@@ -163,7 +146,6 @@ if __name__ == "__main__":
         else:
             task_embs, task_preds = extract_task_embeddings(model, tokenizer, seqs)
 
-        # t-SNE + 绘图
         for task in model_finetuned.TASKS:
             X2d = run_tsne(task_embs[task])
             is_reg = model_finetuned.TASK_TYPES[task] == "regression"
