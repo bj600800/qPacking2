@@ -22,13 +22,13 @@ def load_multitask_model(checkpoint_dir):
 
     model = MultiTaskModel(
         model_dir=checkpoint_dir,
-        add_lora_layers=1,
-        lora_rank=4,
-        lora_alpha=4,
+        add_lora_layers=3,
+        lora_rank=8,
+        lora_alpha=8,
         lora_dropout=0.1
     )
 
-    model.backbone = load_lora_model(checkpoint_dir, add_lora_layers=1, lora_rank=4, lora_alpha=4, lora_dropout=0.1)
+    model.backbone = load_lora_model(checkpoint_dir, add_lora_layers=3, lora_rank=8, lora_alpha=8, lora_dropout=0.1)
 
     # task embedding
     task_emb_path = os.path.join(checkpoint_dir, "task_embedding.pt")
@@ -42,7 +42,7 @@ def load_multitask_model(checkpoint_dir):
     return model.to(device).eval()
 
 
-def extract_task_embeddings(model, tokenizer, seqs, max_per_seq=400):
+def extract_task_embeddings(model, tokenizer, seqs, max_per_seq=50):
     task_embs = {t: [] for t in model.TASKS}
     task_preds = {t: [] for t in model.TASKS}
 
@@ -107,9 +107,9 @@ def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="p
 
 if __name__ == "__main__":
     official_dir  = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"       # 官方 ESM2
-    finetuned_dir = "/Users/douzhixin/Developer/qPacking2/data/test/checkpoint-1"      # 微调后的 MultiTaskModel checkpoint
-    fasta_file    = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/bgstrsq/bgstrsq.fasta"
-    plot_dir      = "/Users/douzhixin/Developer/qPacking2/data/test/plot"
+    finetuned_dir = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111/checkpoint-3000"      # 微调后的 MultiTaskModel checkpoint
+    fasta_file    = "/Users/douzhixin/Developer/qPacking/Data/sequence/70.fasta"
+    plot_dir      = "/Users/douzhixin/Developer/qPacking/Figure/python"
     os.makedirs(plot_dir, exist_ok=True)
 
     seqs = [l.strip() for l in open(fasta_file) if not l.startswith(">")]

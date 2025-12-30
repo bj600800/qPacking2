@@ -1,5 +1,5 @@
 # qPacking2
-Multi-task esm2 fine-tuning
+Multi-task fine-tuning ESM2
 
 ## Installation qPacking2
 ```
@@ -31,3 +31,9 @@ pip install pdb-tools
 conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
+
+## Train qPacking2
+
+  ```
+  python train_qpacking2.py --yaml [multitask training config in train_configs dir]
+  ```
