@@ -37,3 +37,9 @@ conda install libboost==1.73.0
   ```
   python train_qpacking2.py --yaml [multitask training config in train_configs dir]
   ```
+
+## Download ESM2 model on Huggingface
+
+  ```
+  https://huggingface.co/facebook/esm2_t30_150M_UR50D/tree/main
+  ```

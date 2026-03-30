@@ -131,6 +131,8 @@ if __name__ == '__main__':
     # example_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/feature/example_feature.pkl"
     new_pkl = r"/Users/douzhixin/Developer/qPacking2/data/feature/feature_downsample_position.pkl"
     feature = load_pkl(real_pkl)
+    print(len(feature))
+    input()
     result = format_position_binary(real_pkl)
     keep_protein_names = sample_seq_level_soft(result)
     downsample(keep_protein_names, feature, new_pkl)

@@ -12,7 +12,7 @@ lora:
   rank: 8
   alpha: 8
   dropout: 0.05
-  add_lora_layers: 1
+  add_lora_layers: 3
 
 training_args:
   task: multitask

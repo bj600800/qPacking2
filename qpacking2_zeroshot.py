@@ -11,6 +11,7 @@ import os
 from tqdm import tqdm
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 from peft import LoraConfig, get_peft_model, TaskType
 from qpacking2.common import logger
@@ -29,7 +30,7 @@ logger = logger.setup_log(name=__name__)
 def load_model_and_tokenizer(model_path, device, official):
     """
     加载 MaskedLM 模型和 tokenizer，支持官方和 LoRA 两种情况。
-    LoRA 只注入最后 add_lora_layers 层。
+    LoRA 只注入最后 add_lora_layers
     """
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
@@ -168,12 +169,11 @@ def main(model_path, official, model_name, sequence, dms_input, mutation_col, sc
         token_probs = get_token_probs_wt_marginals(model, inputs)
         df = score_mutations(df, sequence, token_probs, tokenizer, offset_idx, mutation_col, model_name)
 
-        # 设置显示上限（显示所有行和列）
         pd.set_option("display.max_rows", None)
         pd.set_option("display.max_columns", None)
         pd.set_option("display.width", None)
         pd.set_option("display.max_colwidth", None)
-        print(df.head(5))  # 打印前20行
+        print(df.head(5))
 
     elif scoring_strategy == "masked-marginals":
         token_probs = get_token_probs_masked_marginals(model, tokenizer, input_ids)
@@ -198,18 +198,77 @@ def read_seq(fasta_file):
     seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
     return seq
 
+def compute_embedding_cosine(model_path_before, model_path_after, sequence):
+
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
+    tokenizer, model_before = load_model_and_tokenizer(model_path_before, device, official=True)
+    _, model_after = load_model_and_tokenizer(model_path_after, device, official=False)
+
+    for name, param in model_after.named_parameters():
+        if "lora" in name:
+            print(name, param.abs().mean())
+
+    model_before.eval()
+    model_after.eval()
+
+    inputs = tokenizer(sequence, return_tensors="pt").to(device)
+
+    with torch.no_grad():
+
+        out_before = model_before(**inputs, output_hidden_states=True)
+        out_after = model_after(**inputs, output_hidden_states=True)
+
+        emb_before = out_before.hidden_states[-1]
+        emb_after = out_after.hidden_states[-1]
+
+        emb_before = emb_before[:, 1:-1, :]
+        emb_after = emb_after[:, 1:-1, :]
+
+        cos = F.cosine_similarity(
+            emb_before,
+            emb_after,
+            dim=-1
+        )
+
+        mean_cos = cos.mean().item()
+
+    print("Embedding cosine similarity:", mean_cos)
+
+    return mean_cos
+
 if __name__ == "__main__":
-    model_path = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"
-    official = True
+    # model_path = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"
+    # official = True
     # model_path = r"/Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111/checkpoint-3000"
     # official = False
+    #
+    # model_name = os.path.basename(model_path)
+    # fasta_file = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/tm/tm.fasta"
+    # dms_input = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/tm/tm.csv"
+    # sequence = read_seq(fasta_file)
+    #
+    # mutation_col = "mutant"
+    # scoring_strategy = "wt-marginals"  # or "masked-marginals" or "pseudo-ppl"
+    # dms_output = os.path.join(os.path.dirname(dms_input), os.path.basename(dms_input).split('.')[0] + f"_{model_name}_{scoring_strategy}_scores.csv")
+    # main(model_path, official, model_name, sequence, dms_input, mutation_col, scoring_strategy, dms_output)
 
-    model_name = os.path.basename(model_path)
-    fasta_file = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/tt/tt.fasta"
-    dms_input = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/tt/tt.csv"
+    base_model = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/esm2_t30_150M_UR50D"
+
+    finetuned_model = r"/Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111/checkpoint-3000"
+
+    fasta_file = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/tm/tm.fasta"
+
     sequence = read_seq(fasta_file)
 
-    mutation_col = "mutant"
-    scoring_strategy = "wt-marginals"  # or "masked-marginals" or "pseudo-ppl"
-    dms_output = os.path.join(os.path.dirname(dms_input), os.path.basename(dms_input).split('.')[0] + f"_{model_name}_{scoring_strategy}_scores.csv")
-    main(model_path, official, model_name, sequence, dms_input, mutation_col, scoring_strategy, dms_output)
+    compute_embedding_cosine(
+        base_model,
+        finetuned_model,
+        sequence
+    )
+    import torch
+    from safetensors.torch import load_file
+    weights = load_file("/Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111/checkpoint-3000/adapter_model.safetensors")
+
+    for k in weights:
+        print(k, weights[k].abs().mean())
